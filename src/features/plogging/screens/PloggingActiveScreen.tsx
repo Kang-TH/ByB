@@ -10,6 +10,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { fetchCourseDetail } from '@/features/course/api/courseApi';
 import { formatDistance, formatDuration } from '@/shared/utils/format';
 import { colors, spacing } from '@/shared/constants/theme';
+import { PloggingMap } from '@/features/plogging/components/PloggingMap';
 
 export function PloggingActiveScreen() {
   const navigation =
@@ -53,7 +54,12 @@ export function PloggingActiveScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.map}>지도 영역 (연동 예정)</Text>
+      <View style={styles.mapWrap}>
+        <PloggingMap
+          trackedPoints={session?.trackedPoints ?? []}
+          routePoints={session?.routePoints}
+        />
+      </View>
       {courseId != null && (
         <Text style={styles.meta}>
           {session?.courseName ?? `코스 #${courseId}`}
@@ -76,15 +82,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     padding: spacing.lg,
-    justifyContent: 'center',
   },
-  map: {
+  mapWrap: {
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    color: colors.textSecondary,
+    overflow: 'hidden',
   },
   meta: { marginTop: spacing.md, color: colors.textSecondary, fontWeight: '600' },
   stat: { fontSize: 24, fontWeight: '700', marginTop: spacing.md },
