@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 import type { LoginResponse } from '@/types/auth';
-import { getDevMockLogin } from '@/shared/mockDb';
+import { signInWithKakaoAndServer } from '@/features/auth/services/kakaoAuth';
 
 export function useKakaoLogin() {
   const signInWithKakao = useCallback(async (): Promise<LoginResponse> => {
-    return getDevMockLogin();
+    return signInWithKakaoAndServer();
   }, []);
 
   return { signInWithKakao };

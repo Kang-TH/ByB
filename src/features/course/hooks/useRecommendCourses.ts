@@ -5,15 +5,15 @@ import { queryKeys } from '@/shared/api/queryKeys';
 import type { RecommendCategory } from '@/types/course';
 
 export function useRecommendCourses(category: RecommendCategory = 'common') {
-  const { userId } = useAuth();
+  const { userId, isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: queryKeys.course.recommend(category),
     queryFn: async () => {
-      const res = await fetchRecommendCourses(category, userId ?? 1);
+      const res = await fetchRecommendCourses(category);
       return res.courses;
     },
-    enabled: userId != null,
+    enabled: isAuthenticated && userId != null,
     staleTime: 60_000,
     retry: false,
   });

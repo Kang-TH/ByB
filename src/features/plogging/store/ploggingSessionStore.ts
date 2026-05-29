@@ -22,9 +22,11 @@ interface PloggingSessionState {
   startSession: (response: StartPloggingResponse, mode: 'FREE' | 'COURSE') => void;
   appendGpsPoint: (point: RoutePoint) => void;
   tick: () => void;
+  syncElapsedFromClock: () => void;
   resetTick: () => void;
   setTrashDraft: (draft: TrashDraft) => void;
   clearTrashDraft: () => void;
+  restoreFromPersisted: (session: ActivePloggingSession) => void;
   clearSession: () => void;
 }
 
@@ -56,6 +58,11 @@ export const usePloggingSessionStore = create<PloggingSessionState>((set, get) =
     const { session } = get();
     if (!session) return;
 
+    const last = session.trackedPoints[session.trackedPoints.length - 1];
+    if (last && totalDistanceKm([last, point]) < 0.003) {
+      return;
+    }
+
     const trackedPoints = [...session.trackedPoints, point];
     set({
       session: { ...session, trackedPoints },
@@ -65,11 +72,39 @@ export const usePloggingSessionStore = create<PloggingSessionState>((set, get) =
 
   tick: () => set((s) => ({ elapsedSeconds: s.elapsedSeconds + 1 })),
 
+  syncElapsedFromClock: () => {
+    const { session } = get();
+    if (!session?.startedAt) return;
+    const startMs = new Date(session.startedAt).getTime();
+    if (Number.isNaN(startMs)) return;
+    set({
+      elapsedSeconds: Math.max(0, Math.floor((Date.now() - startMs) / 1000)),
+    });
+  },
+
   resetTick: () => set({ elapsedSeconds: 0 }),
 
   setTrashDraft: (draft) => set({ trashDraft: draft }),
 
   clearTrashDraft: () => set({ trashDraft: null }),
+
+  restoreFromPersisted: (session) => {
+    const trackedPoints = session.trackedPoints ?? [];
+    const startMs = new Date(session.startedAt).getTime();
+    const elapsedSeconds = Number.isNaN(startMs)
+      ? 0
+      : Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+
+    set({
+      session: {
+        ...session,
+        trackedPoints,
+      },
+      elapsedSeconds,
+      liveDistanceKm: totalDistanceKm(trackedPoints),
+      trashDraft: null,
+    });
+  },
 
   clearSession: () =>
     set({

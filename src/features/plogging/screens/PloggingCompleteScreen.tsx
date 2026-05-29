@@ -9,6 +9,7 @@ import {
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { completePlogging } from '@/features/plogging/api/ploggingApi';
+import { stopPloggingBackgroundTracking } from '@/features/plogging/background/ploggingTracking';
 import { usePloggingSessionStore } from '@/features/plogging/store/ploggingSessionStore';
 import { queryKeys } from '@/shared/api/queryKeys';
 import { PrimaryButton } from '@/shared/components';
@@ -42,9 +43,7 @@ export function PloggingCompleteScreen() {
       startedAt: session.startedAt,
       distance: liveDistanceKm,
       durationSeconds: elapsedSeconds,
-      trashBagType: trashDraft?.bagType,
-      trashAmountValue: trashDraft?.trashAmountValue,
-      trashAmountUnit: trashDraft?.trashAmountUnit,
+      trashDraft,
     });
 
     await Promise.all([
@@ -58,9 +57,14 @@ export function PloggingCompleteScreen() {
     ]);
   };
 
+  const endPloggingSession = async () => {
+    await stopPloggingBackgroundTracking();
+    clearSession();
+  };
+
   const goHome = async () => {
     await persistOnce();
-    clearSession();
+    await endPloggingSession();
     navigation.dispatch(resetRootToMain({ activeTab: 'HomeTab' }));
   };
 
@@ -68,7 +72,7 @@ export function PloggingCompleteScreen() {
     if (!session?.courseId) return;
     await persistOnce();
     const courseId = session.courseId;
-    clearSession();
+    await endPloggingSession();
     navigation.dispatch(
       resetRootToMain({
         activeTab: 'RecommendTab',
@@ -82,7 +86,7 @@ export function PloggingCompleteScreen() {
 
   const goCreateCourse = async () => {
     await persistOnce();
-    clearSession();
+    await endPloggingSession();
     navigation.dispatch(
       resetRootToMain({
         activeTab: 'MyCourseTab',

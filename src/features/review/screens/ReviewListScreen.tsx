@@ -10,7 +10,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RecommendStackParamList } from '@/app/navigation/types';
+import type {
+  MyCourseStackParamList,
+  RecommendStackParamList,
+} from '@/app/navigation/types';
 import { ReviewListItem } from '@/features/review/components/ReviewListItem';
 import { ReviewRatingSummary } from '@/features/review/components/ReviewRatingSummary';
 import { getReviewListData, useReviews } from '@/features/review/hooks/useReviews';
@@ -18,7 +21,10 @@ import { computeReviewStats } from '@/features/review/utils/reviewStats';
 import { colors, spacing } from '@/shared/constants/theme';
 import type { Review } from '@/types/review';
 
-type Props = NativeStackScreenProps<RecommendStackParamList, 'ReviewList'>;
+type Props = NativeStackScreenProps<
+  RecommendStackParamList | MyCourseStackParamList,
+  'ReviewList'
+>;
 
 type SortOption = 'latest' | 'rating';
 

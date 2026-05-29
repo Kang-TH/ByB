@@ -11,7 +11,14 @@ const Stack = createNativeStackNavigator<PloggingStackParamList>();
 export function PloggingStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="PloggingActive" component={PloggingActiveScreen} />
+      <Stack.Screen
+        name="PloggingActive"
+        component={PloggingActiveScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
       <Stack.Screen name="TrashBagSelect" component={TrashBagSelectScreen} />
       <Stack.Screen
         name="TrashAmountStandard"

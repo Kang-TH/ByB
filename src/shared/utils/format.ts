@@ -5,6 +5,11 @@ export function formatDuration(seconds: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
+export function formatDistanceKm(km?: number | null): string {
+  const value = km ?? 0;
+  return `${value.toFixed(1)}km`;
+}
+
 export function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }

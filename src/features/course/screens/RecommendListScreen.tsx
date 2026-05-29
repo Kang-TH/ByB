@@ -13,8 +13,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RecommendStackParamList } from '@/app/navigation/types';
-import { getCourseStartPoint } from '@/features/course/api/courseApi';
-import { useRecommendCourses } from '@/features/course/hooks/useRecommendCourses';
+import { fetchCourseStartPoints } from '@/features/course/api/courseApi';
+import { CourseAreaSubtitle } from '@/features/course/components/CourseAreaSubtitle';
+import { usePublicCourses } from '@/features/course/hooks/usePublicCourses';
+import { EMPTY_COURSE_LIST } from '@/shared/constants/empty';
+import { useFavoriteCourses } from '@/features/favorite/hooks/useFavoriteCourses';
 import { sortCoursesByProximity } from '@/features/course/utils/sortCourses';
 import { useCourseCacheStore } from '@/features/course/store/courseCacheStore';
 import { useFavorite } from '@/features/favorite/hooks/useFavorite';
@@ -26,15 +29,18 @@ import {
 import { useLocationStore } from '@/shared/location/locationStore';
 import { BookmarkButton, Chip, Card } from '@/shared/components';
 import { colors, spacing } from '@/shared/constants/theme';
+import { formatDistanceKm } from '@/shared/utils/format';
 import type { CourseListItem, RoutePoint } from '@/types/course';
 
 type SortKey = 'all' | 'distance' | 'rating';
 
 function CourseRow({
   item,
+  startPoint,
   onPress,
 }: {
   item: CourseListItem;
+  startPoint?: RoutePoint;
   onPress: () => void;
 }) {
   const favorite = useFavorite(item.courseId, item.isFavorite);
@@ -48,9 +54,12 @@ function CourseRow({
             <Text style={styles.courseTitle} numberOfLines={1}>
               {item.title}
             </Text>
-            <Text style={styles.courseArea} numberOfLines={1}>
-              {item.areaName}
-            </Text>
+            <CourseAreaSubtitle
+              areaName={item.areaName}
+              routePoints={startPoint ? [startPoint] : undefined}
+              variant="list"
+              numberOfLines={2}
+            />
           </View>
           <BookmarkButton
             isFavorite={favorite.isFavorite}
@@ -64,7 +73,7 @@ function CourseRow({
               {item.rating != null ? item.rating.toFixed(1) : '-'}
             </Text>
           </View>
-          <Text style={styles.metaText}>{item.distance.toFixed(1)}km</Text>
+          <Text style={styles.metaText}>{formatDistanceKm(item.distance)}</Text>
         </View>
       </Card>
     </Pressable>
@@ -79,14 +88,42 @@ export function RecommendListScreen() {
   const [keyword, setKeyword] = useState('');
   const [sort, setSort] = useState<SortKey>('all');
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
+  const [startPoints, setStartPoints] = useState<Map<number, RoutePoint>>(
+    () => new Map(),
+  );
   const [locationLoading, setLocationLoading] = useState(false);
-  const { data: courses = [] } = useRecommendCourses('common');
+  const { data: coursesData } = usePublicCourses();
+  const courses = coursesData ?? EMPTY_COURSE_LIST;
+  const favoriteCourses = useFavoriteCourses();
+
+  const coursesWithFavorites = useMemo(() => {
+    const favoriteIds = new Set(favoriteCourses.map((c) => c.courseId));
+    return courses.map((c) => ({
+      ...c,
+      isFavorite: favoriteIds.has(c.courseId) || c.isFavorite === true,
+    })) as CourseListItem[];
+  }, [courses, favoriteCourses]);
+
+  const startPointCourseIds = useMemo(
+    () => coursesWithFavorites.map((c) => c.courseId).join(','),
+    [coursesWithFavorites],
+  );
+
+  useEffect(() => {
+    if (!startPointCourseIds) {
+      setStartPoints(new Map());
+      return;
+    }
+    const ids = startPointCourseIds.split(',').map(Number);
+    void fetchCourseStartPoints(ids).then(setStartPoints);
+  }, [startPointCourseIds]);
 
   const selectSort = useCallback(
     async (next: SortKey) => {
       if (next !== 'distance') {
         setSort(next);
         setUserLocation(null);
+        setStartPoints(new Map());
         return;
       }
 
@@ -103,15 +140,14 @@ export function RecommendListScreen() {
         return;
       }
 
-      // TODO(api): Proximity sorting needs course start coordinates.
-      // Spec recommend list response does NOT include routePoints/start coords,
-      // so we currently look them up from mockDb by courseId.
-      // When wiring real API, consider adding start coords to list DTO or providing a nearby API.
       setSort('distance');
       setLocationLoading(true);
       try {
         const coords = await getCurrentPositionOnce();
         setUserLocation(coords);
+        const ids = coursesWithFavorites.map((c) => c.courseId);
+        const points = await fetchCourseStartPoints(ids);
+        setStartPoints(points);
       } catch {
         Alert.alert(
           '위치를 가져올 수 없습니다',
@@ -119,36 +155,48 @@ export function RecommendListScreen() {
         );
         setSort('all');
         setUserLocation(null);
+        setStartPoints(new Map());
       } finally {
         setLocationLoading(false);
       }
     },
-    [setPermissionStatus],
+    [setPermissionStatus, coursesWithFavorites],
   );
 
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase();
-    let list = courses.filter((c) =>
+    let list = coursesWithFavorites.filter((c) =>
       q ? `${c.title} ${c.areaName}`.toLowerCase().includes(q) : true,
     );
 
     if (sort === 'distance' && userLocation) {
-      list = sortCoursesByProximity(list, userLocation, getCourseStartPoint);
+      list = sortCoursesByProximity(
+        list,
+        userLocation,
+        (courseId) => startPoints.get(courseId),
+      );
     } else if (sort === 'rating') {
       list = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     }
 
     return list;
-  }, [courses, keyword, sort, userLocation]);
+  }, [coursesWithFavorites, keyword, sort, userLocation, startPoints]);
+
+  const filteredCacheKey = useMemo(
+    () =>
+      filtered
+        .map((c) => `${c.courseId}:${c.isFavorite ? 1 : 0}:${c.rating ?? ''}`)
+        .join('|'),
+    [filtered],
+  );
 
   useEffect(() => {
+    if (filtered.length === 0) return;
     upsertCourses(filtered);
-  }, [filtered, upsertCourses]);
+  }, [filteredCacheKey, upsertCourses]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>추천 코스</Text>
-
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
@@ -193,6 +241,7 @@ export function RecommendListScreen() {
         renderItem={({ item }) => (
           <CourseRow
             item={item}
+            startPoint={startPoints.get(item.courseId)}
             onPress={() =>
               navigation.navigate('CourseDetail', { courseId: item.courseId })
             }
@@ -205,15 +254,8 @@ export function RecommendListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
   searchWrap: {
+    marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -247,7 +289,6 @@ const styles = StyleSheet.create({
   rowPressable: { marginBottom: spacing.sm },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   courseTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
-  courseArea: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   rowMeta: {
     flexDirection: 'row',
     alignItems: 'center',

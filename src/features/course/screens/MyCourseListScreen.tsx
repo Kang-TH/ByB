@@ -11,6 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MyCourseStackParamList } from '@/app/navigation/types';
 import { useMyCourses, getMyCoursesList } from '@/features/course/hooks/useMyCourses';
+import { useCourseDraftStore } from '@/features/course/store/courseDraftStore';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useFavorite } from '@/features/favorite/hooks/useFavorite';
 import { useFavoriteCourses } from '@/features/favorite/hooks/useFavoriteCourses';
@@ -65,6 +66,7 @@ function MyCourseRow({
 export function MyCourseListScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<MyCourseStackParamList>>();
+  const resetCourseDraft = useCourseDraftStore((s) => s.reset);
   const { userId } = useAuth();
   const [segment, setSegment] = useState<Segment>('my');
   const favoriteCourses = useFavoriteCourses();
@@ -77,8 +79,6 @@ export function MyCourseListScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>내 코스</Text>
-
       <View style={styles.segmentWrap}>
         <SegmentedControl<Segment>
           value={segment}
@@ -112,7 +112,10 @@ export function MyCourseListScreen() {
       <View style={styles.fabWrap}>
         <PrimaryButton
           label="새로운 코스 만들기"
-          onPress={() => navigation.navigate('CourseCreateStep1')}
+          onPress={() => {
+            resetCourseDraft();
+            navigation.navigate('CourseCreateStep1');
+          }}
         />
       </View>
     </View>
@@ -121,15 +124,11 @@ export function MyCourseListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
+  segmentWrap: {
+    marginTop: spacing.md,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  segmentWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl * 2,

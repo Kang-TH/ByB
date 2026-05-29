@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchMyCourses } from '@/features/course/api/courseApi';
 import { queryKeys } from '@/shared/api/queryKeys';
 import type { CourseListItem } from '@/types/course';
+import { EMPTY_COURSE_LIST } from '@/shared/constants/empty';
 
 export function useMyCourses(userId: number | null) {
   return useQuery({
@@ -19,5 +20,5 @@ export function useMyCourses(userId: number | null) {
 export function getMyCoursesList(
   data: CourseListItem[] | undefined,
 ): CourseListItem[] {
-  return data ?? [];
+  return data ?? EMPTY_COURSE_LIST;
 }

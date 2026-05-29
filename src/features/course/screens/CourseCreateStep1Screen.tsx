@@ -1,37 +1,78 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MyCourseStackParamList } from '@/app/navigation/types';
-import { ScreenPlaceholder } from '@/shared/components/ScreenPlaceholder';
+import { CourseCreateLayout } from '@/features/course/components/CourseCreateLayout';
+import { CourseDraftMap } from '@/features/course/components/CourseDraftMap';
+import { useCourseDraftStore } from '@/features/course/store/courseDraftStore';
+import { PrimaryButton } from '@/shared/components';
 import { colors, spacing } from '@/shared/constants/theme';
+
+const MIN_WAYPOINTS = 2;
 
 export function CourseCreateStep1Screen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<MyCourseStackParamList>>();
+  const route = useRoute<RouteProp<MyCourseStackParamList, 'CourseCreateStep1'>>();
+  const editingCourseId = route.params?.courseId;
+  const routePoints = useCourseDraftStore((s) => s.routePoints);
+  const addRoutePoint = useCourseDraftStore((s) => s.addRoutePoint);
+  const removeLastRoutePoint = useCourseDraftStore((s) => s.removeLastRoutePoint);
+
+  const canProceed = routePoints.length >= MIN_WAYPOINTS;
 
   return (
-    <>
-      <ScreenPlaceholder
-        title="지도 — 경유지"
-        subtitle="routePoints 수집 (지도 SDK 연동 예정)"
-      />
-      <Pressable
-        style={styles.next}
-        onPress={() => navigation.navigate('CourseCreateStep2')}
-      >
-        <Text style={styles.nextText}>다음</Text>
-      </Pressable>
-    </>
+    <CourseCreateLayout
+      subtitle="지도에 주요 경유지를 표시해주세요"
+      footer={
+        <>
+          {routePoints.length > 0 ? (
+            <Pressable onPress={removeLastRoutePoint} style={styles.undo}>
+              <Text style={styles.undoText}>
+                마지막 경유지 삭제 ({routePoints.length}개)
+              </Text>
+            </Pressable>
+          ) : null}
+          <PrimaryButton
+            label="다음"
+            disabled={!canProceed}
+            onPress={() =>
+              navigation.navigate(
+                'CourseCreateStep2',
+                editingCourseId != null ? { courseId: editingCourseId } : undefined,
+              )
+            }
+          />
+        </>
+      }
+    >
+      <View style={styles.mapArea}>
+        <CourseDraftMap
+          routePoints={routePoints}
+          interactive
+          onAddPoint={addRoutePoint}
+        />
+      </View>
+    </CourseCreateLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  next: {
-    margin: spacing.lg,
-    backgroundColor: colors.primary,
-    padding: spacing.md,
+  mapArea: {
+    flex: 1,
+    minHeight: 360,
     borderRadius: 12,
-    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
   },
-  nextText: { color: '#fff', fontWeight: '600' },
+  undo: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  undoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
 });

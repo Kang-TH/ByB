@@ -5,6 +5,8 @@ export const queryKeys = {
   },
   course: {
     recommend: (category: string) => ['course', 'recommend', category] as const,
+    /** is_public=true 공개 코스 목록 (추천 탭) */
+    publicList: ['course', 'public'] as const,
     myList: (userId: number) => ['course', 'my', userId] as const,
     favorites: (userId: number) => ['course', 'favorites', userId] as const,
     detail: (courseId: number) => ['course', 'detail', courseId] as const,

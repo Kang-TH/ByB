@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   resetRootToMain,
@@ -26,8 +26,12 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { HomeHeader } from '@/features/home/components/HomeHeader';
 import { WeeklySummaryCard } from '@/features/home/components/WeeklySummaryCard';
 import { RecommendedCoursesSection } from '@/features/home/components/RecommendedCoursesSection';
-import { getHomeData, useHome } from '@/features/home/hooks/useHome';
+import { usePublicCourses } from '@/features/course/hooks/usePublicCourses';
+import { useHome } from '@/features/home/hooks/useHome';
+import { createFallbackHome } from '@/features/home/utils/homeFallback';
 import { useCourseCacheStore } from '@/features/course/store/courseCacheStore';
+import { getApiErrorMessage } from '@/shared/api/errors';
+import { EMPTY_COURSE_LIST } from '@/shared/constants/empty';
 import { colors, spacing } from '@/shared/constants/theme';
 
 type HomeNav = CompositeNavigationProp<
@@ -41,15 +45,27 @@ type HomeNav = CompositeNavigationProp<
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HomeNav>();
-  const { userId } = useAuth();
+  const { userId, nickname } = useAuth();
   const upsertCourses = useCourseCacheStore((s) => s.upsertCourses);
-  const { data, isLoading, isRefetching, refetch, isError } = useHome();
-  const home = getHomeData(data);
+  const { data, isPending, isRefetching, refetch, isError, error } = useHome();
+  const { data: publicCoursesData } = usePublicCourses();
+  const publicCourses = publicCoursesData ?? EMPTY_COURSE_LIST;
+
+  const home = useMemo(() => {
+    if (data) return data;
+    if (isError) return createFallbackHome(nickname ?? '사용자');
+    return undefined;
+  }, [data, isError, nickname]);
+
+  const publicCourseIds = useMemo(
+    () => publicCourses.map((c) => c.courseId).join(','),
+    [publicCourses],
+  );
 
   useEffect(() => {
-    if (!data?.recommendedCourses) return;
-    upsertCourses(data.recommendedCourses);
-  }, [data?.recommendedCourses, upsertCourses]);
+    if (publicCourses.length === 0) return;
+    upsertCourses(publicCourses);
+  }, [publicCourseIds, upsertCourses]);
 
   const startPlogging = () => {
     navigation.dispatch(
@@ -75,7 +91,7 @@ export function HomeScreen() {
     );
   };
 
-  if (isLoading && !data) {
+  if (isPending && !home) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -86,7 +102,7 @@ export function HomeScreen() {
   if (!home) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.offlineHint}>홈 정보를 불러오지 못했습니다.</Text>
       </View>
     );
   }
@@ -123,14 +139,14 @@ export function HomeScreen() {
         <Text style={styles.ctaText}>플로깅 시작하기</Text>
       </Pressable>
 
-      {isError && userId != null && (
+      {isError && userId != null ? (
         <Text style={styles.offlineHint}>
-          서버 연결에 실패했습니다. 미리보기 데이터를 표시 중입니다.
+          이번 주 활동 요약을 불러오지 못했습니다. ({getApiErrorMessage(error)})
         </Text>
-      )}
+      ) : null}
 
       <RecommendedCoursesSection
-        courses={home.recommendedCourses ?? []}
+        courses={publicCourses}
         onPressMore={goRecommendTab}
         onPressCourse={goCourseDetail}
       />

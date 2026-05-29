@@ -33,7 +33,10 @@ export function RootNavigator() {
             <Stack.Screen
               name="Plogging"
               component={PloggingStack}
-              options={{ presentation: 'fullScreenModal' }}
+              options={{
+                presentation: 'fullScreenModal',
+                gestureEnabled: false,
+              }}
             />
           </>
         ) : (

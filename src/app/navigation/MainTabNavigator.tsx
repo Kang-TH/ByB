@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator, type BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { type EventArg } from '@react-navigation/native';
+import { StackActions, type EventArg } from '@react-navigation/native';
 import type { MainTabParamList } from '@/app/navigation/types';
-import { resetRootToMain, type MainTabName } from '@/app/navigation/navigationActions';
+import type { MainTabName } from '@/app/navigation/navigationActions';
 import { HomeStack } from '@/app/navigation/HomeStack';
 import { RecommendStack } from '@/app/navigation/RecommendStack';
 import { MyCourseStack } from '@/app/navigation/MyCourseStack';
@@ -13,11 +13,34 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
-/**
- * 하단 탭 버튼 클릭 시마다 네비게이션 레이어를 전부 제거하고,
- * 해당 탭의 기본 화면(루트)만 남깁니다.
- */
-function tabResetToRootListener() {
+function getTabStackState(
+  navigation: BottomTabNavigationProp<MainTabParamList>,
+  tabName: MainTabName,
+) {
+  const tabRoute = navigation.getState().routes.find((r) => r.name === tabName);
+  return tabRoute?.state;
+}
+
+function popTabStackToRoot(
+  navigation: BottomTabNavigationProp<MainTabParamList>,
+  tabName: MainTabName,
+) {
+  const stackState = getTabStackState(navigation, tabName);
+  if (
+    stackState &&
+    typeof stackState.index === 'number' &&
+    stackState.index > 0 &&
+    stackState.key
+  ) {
+    navigation.dispatch({
+      ...StackActions.popToTop(),
+      target: stackState.key,
+    });
+  }
+}
+
+/** 탭 전환은 기본 동작(애니 없음). 같은 탭 재탭·다른 탭으로 나갈 때만 스택 루트로 */
+function tabStackRootListeners() {
   return ({
     navigation,
     route,
@@ -26,8 +49,25 @@ function tabResetToRootListener() {
     route: { name: MainTabName };
   }) => ({
     tabPress: (e: EventArg<'tabPress', true>) => {
-      e.preventDefault();
-      navigation.dispatch(resetRootToMain({ activeTab: route.name }));
+      const state = navigation.getState();
+      const focusedRoute = state.routes[state.index];
+
+      if (focusedRoute.name !== route.name) {
+        return;
+      }
+
+      const stackState = getTabStackState(navigation, route.name);
+      if (
+        stackState &&
+        typeof stackState.index === 'number' &&
+        stackState.index > 0
+      ) {
+        e.preventDefault();
+        popTabStackToRoot(navigation, route.name);
+      }
+    },
+    blur: () => {
+      popTabStackToRoot(navigation, route.name);
     },
   });
 }
@@ -55,8 +95,7 @@ export function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        // 하단 탭 버튼(탭 전환) 애니메이션을 끕니다.
-        // NativeStack의 화면 내부 버튼 이동 애니메이션은 유지됩니다.
+        // 탭 전환 시 슬라이드 없음. 스택 내부 push 애니메이션은 각 Stack에서 유지.
         animation: 'none',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
@@ -69,7 +108,7 @@ export function MainTabNavigator() {
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}
-        listeners={tabResetToRootListener()}
+        listeners={tabStackRootListeners()}
         options={{
           title: '홈',
           tabBarIcon: ({ color, size, focused }) => (
@@ -86,7 +125,7 @@ export function MainTabNavigator() {
       <Tab.Screen
         name="RecommendTab"
         component={RecommendStack}
-        listeners={tabResetToRootListener()}
+        listeners={tabStackRootListeners()}
         options={{
           title: '추천 코스',
           tabBarIcon: ({ color, size, focused }) => (
@@ -103,7 +142,7 @@ export function MainTabNavigator() {
       <Tab.Screen
         name="MyCourseTab"
         component={MyCourseStack}
-        listeners={tabResetToRootListener()}
+        listeners={tabStackRootListeners()}
         options={{
           title: '내 코스',
           tabBarIcon: ({ color, size, focused }) => (
@@ -120,7 +159,7 @@ export function MainTabNavigator() {
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStack}
-        listeners={tabResetToRootListener()}
+        listeners={tabStackRootListeners()}
         options={{
           title: '마이',
           tabBarIcon: ({ color, size, focused }) => (

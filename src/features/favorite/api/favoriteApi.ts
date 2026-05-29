@@ -7,11 +7,5 @@ export interface ToggleFavoriteResponse {
 }
 
 export async function toggleFavoriteOnServer(courseId: number, userId: number) {
-  // const { data } = await apiClient.post<ToggleFavoriteResponse>(
-  //   `/course/recommend/${courseId}`,
-  //   { userId },
-  // );
-  // return data;
-
   return toggleFavorite(courseId, userId);
 }

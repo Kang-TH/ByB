@@ -11,7 +11,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RecommendStackParamList } from '@/app/navigation/types';
+import type {
+  MyCourseStackParamList,
+  RecommendStackParamList,
+} from '@/app/navigation/types';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useCreateReview } from '@/features/review/hooks/useCreateReview';
 import { fetchReviewWriteForm } from '@/features/review/api/reviewApi';
@@ -20,13 +23,17 @@ import { colors, spacing } from '@/shared/constants/theme';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/api/queryKeys';
 
-type Props = NativeStackScreenProps<RecommendStackParamList, 'ReviewWrite'>;
+type Props = NativeStackScreenProps<
+  RecommendStackParamList | MyCourseStackParamList,
+  'ReviewWrite'
+>;
 
 export function ReviewWriteScreen({ route }: Props) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { userId, nickname } = useAuth();
   const courseId = route.params.courseId;
+  const source = route.params.source ?? 'recommend';
   const createReviewMutation = useCreateReview(courseId);
   const { data: writeForm } = useQuery({
     queryKey: queryKeys.review.writeForm(courseId),
@@ -68,7 +75,7 @@ export function ReviewWriteScreen({ route }: Props) {
                 routes: [
                   {
                     name: 'ReviewList',
-                    params: { courseId, courseName, source: 'recommend' },
+                    params: { courseId, courseName, source },
                   },
                 ],
               }),

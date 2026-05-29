@@ -5,6 +5,8 @@ import { MyCourseDetailScreen } from '@/features/course/screens/MyCourseDetailSc
 import { CourseCreateStep1Screen } from '@/features/course/screens/CourseCreateStep1Screen';
 import { CourseCreateStep2Screen } from '@/features/course/screens/CourseCreateStep2Screen';
 import { CourseCreateStep3Screen } from '@/features/course/screens/CourseCreateStep3Screen';
+import { ReviewListScreen } from '@/features/review/screens/ReviewListScreen';
+import { ReviewWriteScreen } from '@/features/review/screens/ReviewWriteScreen';
 
 const Stack = createNativeStackNavigator<MyCourseStackParamList>();
 
@@ -19,22 +21,41 @@ export function MyCourseStack() {
       <Stack.Screen
         name="MyCourseDetail"
         component={MyCourseDetailScreen}
-        options={{ title: '내 코스 상세' }}
+        options={{ title: '코스 상세' }}
+      />
+      <Stack.Screen
+        name="ReviewList"
+        component={ReviewListScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ReviewWrite"
+        component={ReviewWriteScreen}
+        options={{ title: '후기 작성' }}
       />
       <Stack.Screen
         name="CourseCreateStep1"
         component={CourseCreateStep1Screen}
-        options={{ title: '경유지 설정' }}
+        options={({ route }) => ({
+          title:
+            route.params?.courseId != null ? '코스 수정' : '새로운 코스 만들기',
+        })}
       />
       <Stack.Screen
         name="CourseCreateStep2"
         component={CourseCreateStep2Screen}
-        options={{ title: '코스 정보' }}
+        options={({ route }) => ({
+          title:
+            route.params?.courseId != null ? '코스 수정' : '새로운 코스 만들기',
+        })}
       />
       <Stack.Screen
         name="CourseCreateStep3"
         component={CourseCreateStep3Screen}
-        options={{ title: '저장' }}
+        options={({ route }) => ({
+          title:
+            route.params?.courseId != null ? '코스 수정' : '새로운 코스 만들기',
+        })}
       />
     </Stack.Navigator>
   );

@@ -1,19 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CourseListItem } from '@/types/course';
+import { CourseAreaSubtitle } from '@/features/course/components/CourseAreaSubtitle';
+import { fetchCourseStartPoint } from '@/features/course/api/courseApi';
 import { useFavorite } from '@/features/favorite/hooks/useFavorite';
 import { useToggleFavorite } from '@/features/favorite/hooks/useToggleFavorite';
+import { useEffect, useState } from 'react';
+import type { RoutePoint } from '@/types/course';
 import { BookmarkButton } from '@/shared/components';
 import { colors, spacing } from '@/shared/constants/theme';
+import { formatDistanceKm } from '@/shared/utils/format';
 
 interface HomeCourseCardProps {
   course: CourseListItem;
   onPress?: () => void;
 }
 
-export function HomeCourseCard({ course, onPress }: HomeCourseCardProps) {
-  const favorite = useFavorite(course.courseId, course.isFavorite);
+export function HomeCourseCard({
+  course,
+  onPress,
+}: HomeCourseCardProps) {
+  const favorite = useFavorite(
+    course.courseId,
+    course.isFavorite === true,
+  );
   const toggleFavorite = useToggleFavorite(course);
+  const [startPoint, setStartPoint] = useState<RoutePoint | undefined>();
+
+  useEffect(() => {
+    void fetchCourseStartPoint(course.courseId)
+      .then(setStartPoint)
+      .catch(() => setStartPoint(undefined));
+  }, [course.courseId]);
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -34,9 +52,12 @@ export function HomeCourseCard({ course, onPress }: HomeCourseCardProps) {
             onPress={toggleFavorite.toggle}
           />
         </View>
-        <Text style={styles.area} numberOfLines={1}>
-          {course.areaName}
-        </Text>
+        <CourseAreaSubtitle
+          areaName={course.areaName}
+          routePoints={startPoint ? [startPoint] : undefined}
+          variant="list"
+          numberOfLines={2}
+        />
         <View style={styles.metaRow}>
           {course.rating != null && (
             <View style={styles.ratingRow}>
@@ -44,7 +65,7 @@ export function HomeCourseCard({ course, onPress }: HomeCourseCardProps) {
               <Text style={styles.rating}>{course.rating.toFixed(1)}</Text>
             </View>
           )}
-          <Text style={styles.distance}>{course.distance.toFixed(1)}km</Text>
+          <Text style={styles.distance}>{formatDistanceKm(course.distance)}</Text>
         </View>
       </View>
     </Pressable>

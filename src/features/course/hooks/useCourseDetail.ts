@@ -9,7 +9,7 @@ export function useCourseDetail(courseId: number) {
 
   return useQuery({
     queryKey: queryKeys.course.detail(courseId),
-    queryFn: () => fetchCourseDetail(courseId, userId ?? 1),
+    queryFn: () => fetchCourseDetail(courseId),
     enabled: userId != null,
     staleTime: 60_000,
     retry: false,

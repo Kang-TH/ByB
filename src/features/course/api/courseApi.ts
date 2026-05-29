@@ -1,26 +1,5 @@
-// TODO(api): Replace mockDb reads/writes with real API calls.
-// Spec:
-// - GET /api/v1/course/list/recommend/{courseCategory}
-// - GET /api/v1/course/list/{userId}
-// - GET /api/v1/course/list/{userId}/recommend
-// - GET /api/v1/course/{courseId}
-// - GET /api/v1/course/{courseId}/{userId}
-// - POST /api/v1/course
-// - POST /api/v1/course/search
-// Note: Spec list items don't include userId; current UI types require it.
-// Align DTOs when switching to server (either make userId optional on client or add field server-side).
-// import { apiClient } from '@/shared/api/client';
-import {
-  dbFindCourse,
-  dbGetFavoriteCourses,
-  dbGetMyCourses,
-  dbGetPublicCourses,
-  dbInsertCourse,
-  dbToCourseDetail,
-  dbToCourseListItem,
-  dbToggleFavorite,
-  MOCK_DB,
-} from '@/shared/mockDb';
+import { apiClient } from '@/shared/api/client';
+import { toCourseDetail, toCourseListItem } from '@/shared/api/mappers';
 import type {
   CourseDetail,
   CourseListItem,
@@ -28,153 +7,156 @@ import type {
   RecommendCategory,
   RoutePoint,
   SearchSort,
+  UpdateCourseRequest,
 } from '@/types/course';
 
-export async function fetchRecommendCourses(
-  category: RecommendCategory,
-  viewerUserId: number,
-) {
-  // const { data } = await apiClient.get<{ category: string; courses: CourseListItem[] }>(
-  //   `/course/list/recommend/${category}`,
-  // );
-  // return data;
-
-  let courses = dbGetPublicCourses(viewerUserId);
-
-  if (category === 'like') {
-    courses = courses.filter((c) => c.isFavorite);
-  }
-  if (category === 'distance') {
-    // NOTE: Spec "distance" category likely means server-defined distance-based ranking.
-    // Our UI later redefines "distance" as proximity to user location (see RecommendListScreen).
-    courses = [...courses].sort((a, b) => a.distance - b.distance);
-  }
-
-  return { category, courses };
+export async function fetchRecommendCourses(category: RecommendCategory) {
+  const { data } = await apiClient.get<{
+    category: string;
+    courses: Omit<CourseListItem, 'userId'>[];
+  }>(`/course/list/recommend/${category}`);
+  return {
+    category: data.category as RecommendCategory,
+    courses: data.courses.map((c) => toCourseListItem(c)),
+  };
 }
 
 export async function fetchMyCourses(userId: number) {
-  // const { data } = await apiClient.get<{ userId: number; courses: CourseListItem[] }>(
-  //   `/course/list/${userId}`,
-  // );
-  // return data;
-
-  return { userId, courses: dbGetMyCourses(userId) };
+  const { data } = await apiClient.get<{
+    userId: number;
+    courses: Omit<CourseListItem, 'userId'>[];
+  }>(`/course/list/${userId}`);
+  return {
+    userId: data.userId,
+    courses: data.courses.map((c) => toCourseListItem(c, userId)),
+  };
 }
 
 export async function fetchFavoriteCourses(userId: number) {
-  // const { data } = await apiClient.get<{
-  //   userId: number;
-  //   favorites: CourseListItem[];
-  // }>(`/course/list/${userId}/recommend`);
-  // return data;
-
-  return { userId, favorites: dbGetFavoriteCourses(userId) };
+  const { data } = await apiClient.get<{
+    userId: number;
+    favorites: Omit<CourseListItem, 'userId'>[];
+  }>(`/course/list/${userId}/recommend`);
+  return {
+    userId: data.userId,
+    favorites: data.favorites.map((c) => toCourseListItem(c)),
+  };
 }
 
-export async function fetchCourseDetail(
-  courseId: number,
-  viewerUserId: number,
-): Promise<CourseDetail> {
-  // const { data } = await apiClient.get<CourseDetail>(`/course/${courseId}`);
-  // return data;
-
-  const course = dbFindCourse(courseId);
-  if (!course) {
-    return dbToCourseDetail(
-      {
-        id: courseId,
-        user_id: 0,
-        title: `코스 #${courseId}`,
-        description: '',
-        area_name: '서울',
-        distance: 0,
-        estimated_time: 0,
-        route_points: [],
-        is_public: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      viewerUserId,
-    );
-  }
-  return dbToCourseDetail(course, viewerUserId);
+export async function fetchCourseDetail(courseId: number): Promise<CourseDetail> {
+  const { data } = await apiClient.get<CourseDetail>(`/course/${courseId}`);
+  return toCourseDetail(data);
 }
 
 export async function fetchMyCourseDetail(
   courseId: number,
   userId: number,
 ): Promise<CourseDetail> {
-  // const { data } = await apiClient.get<CourseDetail>(
-  //   `/course/${courseId}/${userId}`,
-  // );
-  // return data;
-
-  return fetchCourseDetail(courseId, userId);
+  const { data } = await apiClient.get<CourseDetail>(
+    `/course/${courseId}/${userId}`,
+  );
+  return toCourseDetail(data);
 }
 
-export async function searchCourses(
-  keyword: string,
-  sort: SearchSort,
-  viewerUserId: number,
-) {
-  // const { data } = await apiClient.post<{ courses: CourseListItem[] }>(
-  //   '/course/search',
-  //   { keyword, sort },
-  // );
-  // return data;
-
-  const q = keyword.trim().toLowerCase();
-  let courses = dbGetPublicCourses(viewerUserId).filter((c) =>
-    q ? `${c.title} ${c.areaName}`.toLowerCase().includes(q) : true,
+export async function searchCourses(keyword: string, sort: SearchSort) {
+  const { data } = await apiClient.post<{ courses: CourseListItem[] }>(
+    '/course/search',
+    { keyword, sort },
   );
+  return {
+    courses: data.courses.map((c) => toCourseListItem(c)),
+  };
+}
 
-  if (sort === 'RATING') {
-    courses = [...courses].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  } else if (sort === 'DISTANCE') {
-    courses = [...courses].sort((a, b) => a.distance - b.distance);
-  }
-
-  return { courses };
+/** 추천 코스 탭 = is_public=true 인 공개 코스 (search API) */
+export async function fetchPublicCourses() {
+  return searchCourses('', 'POPULAR');
 }
 
 export async function createCourse(body: CreateCourseRequest) {
-  // const { data } = await apiClient.post('/course', body);
-  // return data;
+  const { data } = await apiClient.post<{ courseId: number; message: string }>(
+    '/course',
+    body,
+  );
+  return data;
+}
 
-  const row = dbInsertCourse(body);
+export async function updateCourse(
+  courseId: number,
+  body: UpdateCourseRequest,
+) {
+  const { data } = await apiClient.put<{ courseId: number; message: string }>(
+    `/course/${courseId}`,
+    body,
+  );
+  return data;
+}
+
+export async function deleteCourse(courseId: number) {
+  const { data } = await apiClient.delete<{ courseId: number; message: string }>(
+    `/course/${courseId}`,
+  );
+  return data;
+}
+
+function buildUpdateBodyFromCourse(
+  course: CourseDetail,
+  isPublic: boolean,
+): UpdateCourseRequest {
   return {
-    courseId: row.id,
-    message: '코스가 등록되었습니다.',
+    title: course.title,
+    description: course.description ?? '',
+    areaName: course.areaName,
+    distance: course.distance,
+    estimatedTime: course.estimatedTime ?? 0,
+    routePoints: course.routePoints ?? [],
+    isPublic,
   };
+}
+
+/** 추천 코스 탭 공개 여부 변경 */
+export async function setCoursePublic(course: CourseDetail, isPublic: boolean) {
+  return updateCourse(course.courseId, buildUpdateBodyFromCourse(course, isPublic));
+}
+
+export async function publishCourse(course: CourseDetail) {
+  return setCoursePublic(course, true);
+}
+
+export async function unpublishCourse(course: CourseDetail) {
+  return setCoursePublic(course, false);
 }
 
 export async function toggleFavorite(courseId: number, userId: number) {
-  // const { data } = await apiClient.post(`/course/recommend/${courseId}`, {
-  //   userId,
-  // });
-  // return data;
-
-  const { isFavorite } = dbToggleFavorite(userId, courseId);
-  return {
-    courseId,
-    isFavorite,
-    message: isFavorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기를 해제했습니다.',
-  };
-}
-
-/** 코스 캐시 시드용 — mockDb 전체 코스 목록 */
-export function fetchAllCoursesForCache(viewerUserId: number): CourseListItem[] {
-  return MOCK_DB.courses.map((c) => dbToCourseListItem(c, viewerUserId));
+  const { data } = await apiClient.post<{
+    courseId: number;
+    isFavorite: boolean;
+    message?: string;
+  }>(`/course/recommend/${courseId}`, { userId });
+  return data;
 }
 
 /** 거리순(가까운 순) 정렬용 — 코스 시작 좌표 */
-export function getCourseStartPoint(courseId: number): RoutePoint | undefined {
-  // TODO(api): Spec recommend list doesn't include routePoints/start coords.
-  // Options when wiring real API:
-  // 1) Add startLat/startLng (or routePoints) to list DTO
-  // 2) Call GET /course/{courseId} per item (costly)
-  // 3) Provide dedicated "nearby list" API with coords
-  const course = dbFindCourse(courseId);
-  return course?.route_points[0];
+export async function fetchCourseStartPoint(
+  courseId: number,
+): Promise<RoutePoint | undefined> {
+  const detail = await fetchCourseDetail(courseId);
+  return detail.routePoints?.[0];
+}
+
+export async function fetchCourseStartPoints(
+  courseIds: number[],
+): Promise<Map<number, RoutePoint>> {
+  const map = new Map<number, RoutePoint>();
+  await Promise.all(
+    courseIds.map(async (courseId) => {
+      try {
+        const start = await fetchCourseStartPoint(courseId);
+        if (start) map.set(courseId, start);
+      } catch {
+        // skip courses that fail to load
+      }
+    }),
+  );
+  return map;
 }

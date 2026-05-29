@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { PloggingStackParamList } from '@/app/navigation/types';
 import { TrashInputLayout } from '@/features/plogging/components/TrashInputLayout';
+import { usePloggingSessionStore } from '@/features/plogging/store/ploggingSessionStore';
 import { TRASH_BAG_OPTIONS } from '@/shared/constants/trashOptions';
 import { PrimaryButton } from '@/shared/components';
 import { colors, spacing } from '@/shared/constants/theme';
@@ -13,15 +14,23 @@ import type { TrashBagType } from '@/types/plogging';
 export function TrashBagSelectScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<PloggingStackParamList>>();
+  const setTrashDraft = usePloggingSessionStore((s) => s.setTrashDraft);
   const [selected, setSelected] = useState<TrashBagType | null>(null);
 
   const goNext = () => {
     if (!selected) return;
     if (selected === 'STANDARD') {
       navigation.navigate('TrashAmountStandard');
-    } else {
-      navigation.navigate('TrashAmountNormal');
+      return;
     }
+    // 일반 봉투: 종량제(L) 수거량에 합산하지 않음
+    setTrashDraft({
+      bagType: 'NORMAL',
+      trashAmountValue: '0',
+      trashAmountUnit: 'L',
+      displayAmount: '해당 없음',
+    });
+    navigation.navigate('PloggingComplete');
   };
 
   return (

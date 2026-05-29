@@ -9,23 +9,32 @@ export type HomeStackParamList = {
   ActivityHistory: undefined;
 };
 
+export type ReviewListParams = {
+  courseId: number;
+  courseName: string;
+  source?: 'recommend' | 'myCourse';
+};
+
+export type ReviewWriteParams = {
+  courseId: number;
+  source?: 'recommend' | 'myCourse';
+};
+
 export type RecommendStackParamList = {
   RecommendList: undefined;
   CourseDetail: { courseId: number };
-  ReviewList: {
-    courseId: number;
-    courseName: string;
-    source?: 'recommend' | 'myCourse';
-  };
-  ReviewWrite: { courseId: number };
+  ReviewList: ReviewListParams;
+  ReviewWrite: ReviewWriteParams;
 };
 
 export type MyCourseStackParamList = {
   MyCourseList: undefined;
   MyCourseDetail: { courseId: number };
-  CourseCreateStep1: undefined;
-  CourseCreateStep2: undefined;
-  CourseCreateStep3: undefined;
+  ReviewList: ReviewListParams;
+  ReviewWrite: ReviewWriteParams;
+  CourseCreateStep1: { courseId?: number } | undefined;
+  CourseCreateStep2: { courseId?: number } | undefined;
+  CourseCreateStep3: { courseId?: number } | undefined;
 };
 
 export type ProfileStackParamList = {

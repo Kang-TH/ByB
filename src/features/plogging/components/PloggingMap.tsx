@@ -1,12 +1,27 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import {
   NaverMapMarkerOverlay,
   NaverMapPolylineOverlay,
   NaverMapView,
-  type NaverMapViewRef,
+  type Camera,
 } from '@mj-studio/react-native-naver-map';
 import type { RoutePoint } from '@/types/course';
+import { getQuickCurrentPosition } from '@/shared/location/locationService';
+import { colors } from '@/shared/constants/theme';
+import {
+  NAVER_MAP_MARKER_CAPTION,
+  NAVER_MAP_MARKER_SIZE,
+} from '@/shared/map/naverMapMarker';
 import { haversineKm } from '@/shared/utils/geo';
+
+const FALLBACK_CAMERA: Camera = {
+  latitude: 37.5665,
+  longitude: 126.978,
+  zoom: 14,
+};
+
+const CAMERA_FOLLOW_MIN_KM = 0.02;
 
 function toNaverCoords(points: RoutePoint[]) {
   return points.map((p) => ({ latitude: p.lat, longitude: p.lng }));
@@ -25,6 +40,10 @@ function findClosestRouteIndex(route: RoutePoint[], current: RoutePoint): number
   return minIdx;
 }
 
+function toCamera(point: RoutePoint, zoom = 16): Camera {
+  return { latitude: point.lat, longitude: point.lng, zoom };
+}
+
 export function PloggingMap({
   trackedPoints,
   routePoints,
@@ -32,8 +51,23 @@ export function PloggingMap({
   trackedPoints: RoutePoint[];
   routePoints?: RoutePoint[];
 }) {
-  const mapRef = useRef<NaverMapViewRef>(null);
   const current = trackedPoints.length > 0 ? trackedPoints[trackedPoints.length - 1] : null;
+  const [camera, setCamera] = useState<Camera | null>(null);
+  const lastFollowedRef = useRef<RoutePoint | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const position = await getQuickCurrentPosition();
+      if (cancelled) return;
+      setCamera(position ? toCamera(position) : FALLBACK_CAMERA);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const passedCoords = useMemo(() => toNaverCoords(trackedPoints), [trackedPoints]);
 
@@ -43,21 +77,38 @@ export function PloggingMap({
     return toNaverCoords(routePoints.slice(idx));
   }, [routePoints, current]);
 
-  const initialCamera = useMemo(() => {
-    const fallback = { latitude: 37.5665, longitude: 126.9780, zoom: 14 };
-    if (!current) return fallback;
-    return { latitude: current.lat, longitude: current.lng, zoom: 16 };
-  }, [current]);
+  useEffect(() => {
+    if (!current) return;
+
+    const lastFollowed = lastFollowedRef.current;
+    if (
+      lastFollowed &&
+      haversineKm(lastFollowed, current) < CAMERA_FOLLOW_MIN_KM
+    ) {
+      return;
+    }
+
+    lastFollowedRef.current = current;
+    setCamera(toCamera(current));
+  }, [current?.lat, current?.lng]);
+
+  if (camera == null) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <NaverMapView
-      ref={mapRef}
-      style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}
-      initialCamera={initialCamera}
+      style={{ flex: 1 }}
+      initialCamera={camera}
+      camera={camera}
+      animationDuration={300}
       isShowLocationButton={false}
       isShowCompass
     >
-      {/* 지나온 길: 항상 초록색 */}
       {passedCoords.length >= 2 ? (
         <NaverMapPolylineOverlay
           coords={passedCoords}
@@ -67,7 +118,6 @@ export function PloggingMap({
         />
       ) : null}
 
-      {/* 코스 남은 길: 코스 모드에서만 노란색 */}
       {remainingCoords.length >= 2 ? (
         <NaverMapPolylineOverlay
           coords={remainingCoords}
@@ -77,14 +127,19 @@ export function PloggingMap({
         />
       ) : null}
 
-      {/* 현재 위치 마커 */}
       {current ? (
         <NaverMapMarkerOverlay
           latitude={current.lat}
           longitude={current.lng}
+          width={NAVER_MAP_MARKER_SIZE.width}
+          height={NAVER_MAP_MARKER_SIZE.height}
           image={{ symbol: 'green' }}
           anchor={{ x: 0.5, y: 1 }}
-          caption={{ text: '나' }}
+          caption={{
+            text: '나',
+            textSize: NAVER_MAP_MARKER_CAPTION.textSize,
+            offset: NAVER_MAP_MARKER_CAPTION.offset,
+          }}
           zIndex={30}
         />
       ) : null}
@@ -92,3 +147,11 @@ export function PloggingMap({
   );
 }
 
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+});

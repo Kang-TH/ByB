@@ -5,12 +5,12 @@ import { queryKeys } from '@/shared/api/queryKeys';
 import type { HomeResponse } from '@/types/plogging';
 
 export function useHome() {
-  const { userId } = useAuth();
+  const { userId, isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: queryKeys.plogging.home,
-    queryFn: () => fetchHome(userId!),
-    enabled: userId != null,
+    queryFn: () => fetchHome(),
+    enabled: isAuthenticated && userId != null,
     staleTime: 60_000,
     retry: false,
   });

@@ -8,10 +8,12 @@ import type {
   RecommendStackParamList,
   RootStackParamList,
 } from '@/app/navigation/types';
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CourseReviewSection } from '@/features/review/components/CourseReviewSection';
 import { resetRootToMainWithPlogging } from '@/app/navigation/navigationActions';
+import { CourseAreaSubtitle } from '@/features/course/components/CourseAreaSubtitle';
+import { CourseDraftMap } from '@/features/course/components/CourseDraftMap';
 import {
   getCourseDetailOrPlaceholder,
   useCourseDetail,
@@ -42,8 +44,8 @@ export function CourseDetailScreen({ route }: Props) {
   const toggleFavorite = useToggleFavorite(course);
 
   useEffect(() => {
-    upsertCourse(course);
-  }, [course, upsertCourse]);
+    if (data) upsertCourse(data);
+  }, [data, upsertCourse]);
 
   return (
     <ScrollView
@@ -52,13 +54,20 @@ export function CourseDetailScreen({ route }: Props) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
-        <Text style={styles.heroText}>지도/썸네일 영역</Text>
+        {course.routePoints && course.routePoints.length > 0 ? (
+          <CourseDraftMap routePoints={course.routePoints} />
+        ) : (
+          <Text style={styles.heroText}>경로 정보 없음</Text>
+        )}
       </View>
 
       <View style={styles.titleRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>{course.title}</Text>
-          <Text style={styles.area}>{course.areaName}</Text>
+          <CourseAreaSubtitle
+            areaName={course.areaName}
+            routePoints={course.routePoints}
+          />
         </View>
         <View style={styles.bookmark}>
           <BookmarkButton
@@ -87,34 +96,17 @@ export function CourseDetailScreen({ route }: Props) {
         <Text style={styles.description}>{course.description}</Text>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>후기</Text>
-        <Pressable
-          hitSlop={8}
-          onPress={() =>
-            navigation.navigate('ReviewList', {
-              courseId: course.courseId,
-              courseName: course.title,
-              source: 'recommend',
-            })
-          }
-        >
-          <Text style={styles.more}>더보기</Text>
-        </Pressable>
-      </View>
-
-      {course.previewReviews?.slice(0, 1).map((r) => (
-        <Card key={r.reviewId}>
-          <View style={styles.reviewTop}>
-            <Text style={styles.reviewName}>{r.nickname}</Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color={colors.star} />
-              <Text style={styles.ratingText}>{r.rating}</Text>
-            </View>
-          </View>
-          <Text style={styles.reviewContent}>{r.content}</Text>
-        </Card>
-      ))}
+      <CourseReviewSection
+        courseId={course.courseId}
+        courseName={course.title}
+        onPressMore={() =>
+          navigation.navigate('ReviewList', {
+            courseId: course.courseId,
+            courseName: course.title,
+            source: 'recommend',
+          })
+        }
+      />
 
       <View style={styles.footer}>
         <PrimaryButton
@@ -143,14 +135,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   hero: {
-    height: 180,
+    height: 220,
     borderRadius: 16,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     marginBottom: spacing.lg,
   },
-  heroText: { color: colors.textSecondary, fontWeight: '700' },
+  heroText: {
+    flex: 1,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,7 +155,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: { fontSize: 20, fontWeight: '800', color: colors.text },
-  area: { marginTop: 2, color: colors.textSecondary },
   bookmark: { padding: spacing.sm },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   divider: { width: 1, height: 44, backgroundColor: colors.border },
@@ -166,20 +162,7 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.textSecondary, fontSize: 13, marginBottom: 6 },
   statValue: { fontSize: 16, fontWeight: '800', color: colors.text },
   section: { marginTop: spacing.lg },
-  sectionHeader: {
-    marginTop: spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   description: { marginTop: spacing.sm, color: colors.textSecondary, lineHeight: 20 },
-  more: { color: colors.textSecondary, fontWeight: '700' },
-  reviewTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  reviewName: { fontWeight: '800', color: colors.text },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingText: { fontWeight: '800', color: colors.text },
-  reviewContent: { color: colors.textSecondary, lineHeight: 20 },
   footer: { marginTop: spacing.xl },
 });

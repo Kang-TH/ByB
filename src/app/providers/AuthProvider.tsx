@@ -7,6 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import {
+  configureAuthSession,
+  renewSessionOnStartup,
+} from '@/shared/api/authSession';
 import { setAccessToken } from '@/shared/api/client';
 import { useLocationStore } from '@/shared/location/locationStore';
 import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from '@/shared/utils/storage';
@@ -29,12 +33,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    configureAuthSession({
+      onTokensUpdated: (response) => {
+        setAccessToken(response.accessToken);
+        setUserId(response.userId);
+        setNickname(response.nickname);
+      },
+      onSessionExpired: () => {
+        void (async () => {
+          await clearAuthTokens();
+          setAccessToken(null);
+          setUserId(null);
+          setNickname(null);
+          useLocationStore.setState({ permissionStatus: null });
+        })();
+      },
+    });
+  }, []);
+
+  useEffect(() => {
     (async () => {
       const tokens = await loadAuthTokens();
       if (tokens) {
         setAccessToken(tokens.accessToken);
         setUserId(tokens.userId);
-        setNickname('초록러너');
+        setNickname(tokens.nickname ?? null);
+        await renewSessionOnStartup();
       }
       setIsLoading(false);
     })();
@@ -46,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         response.userId,
         response.accessToken,
         response.refreshToken,
+        response.nickname,
       );
     } catch {
       // SecureStore 미지원 환경(웹 등)에서도 로그인 진행

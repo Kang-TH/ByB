@@ -1,8 +1,17 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useKakaoLogin } from '@/features/auth/hooks/useKakaoLogin';
+import { logAndroidKakaoKeyHashIfDev } from '@/features/auth/services/kakaoAuth';
 import { useLocationStore } from '@/shared/location/locationStore';
+import { getApiErrorMessage } from '@/shared/api/errors';
 import { colors, spacing } from '@/shared/constants/theme';
 
 export function LoginScreen() {
@@ -10,6 +19,10 @@ export function LoginScreen() {
   const { signInWithKakao } = useKakaoLogin();
   const requestPermissionOnLogin = useLocationStore((s) => s.requestPermissionOnLogin);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void logAndroidKakaoKeyHashIfDev();
+  }, []);
 
   const completeLogin = async () => {
     await requestPermissionOnLogin();
@@ -21,16 +34,8 @@ export function LoginScreen() {
       const response = await signInWithKakao();
       await signIn(response);
       await completeLogin();
-    } catch {
-      // 버튼 탭 시 항상 메인으로 (개발용)
-      await signIn({
-        userId: 1,
-        nickname: '초록러너',
-        accessToken: 'dev-mock-access-token',
-        refreshToken: 'dev-mock-refresh-token',
-        isNewUser: false,
-      });
-      await completeLogin();
+    } catch (error) {
+      Alert.alert('로그인 실패', getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }
