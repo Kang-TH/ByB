@@ -22,10 +22,6 @@ EXPO_PUBLIC_NAVER_MAP_CLIENT_SECRET=your-naver-map-client-secret
 지도·주소는 **네이버 Maps**(SDK + Reverse Geocoding). 카카오는 **로그인**에만 사용합니다.  
 콘솔에서 Maps **Reverse Geocoding** API를 켜고, Client ID·Secret을 `.env`에 넣어 주세요.
 
-- **Android 에뮬레이터**: `http://10.0.2.2:8080/api/v1`
-- **실기기**: Mac의 LAN IP (예: `http://192.168.0.10:8080/api/v1`)
-- **iOS + HTTP API**: ATS 예외가 필요합니다. `npm run ios`가 `sync-ios-ats`로 `Info.plist`를 자동 반영합니다. API 주소를 바꾼 뒤에는 **앱을 다시 빌드**하세요 (`npx expo run:ios --device`).
-
 ### 카카오 로그인 설정
 
 1. [Kakao Developers](https://developers.kakao.com/)에서 앱 생성
@@ -37,7 +33,7 @@ EXPO_PUBLIC_NAVER_MAP_CLIENT_SECRET=your-naver-map-client-secret
 5. Android는 **키 해시** 등록 필요 — [`docs/kakao-android-keyhash.md`](docs/kakao-android-keyhash.md), `npm run android:keyhash`
 6. 네이티브 변경 후: `npx expo prebuild` → `npx expo run:android` (Expo Go 불가)
 
-### 릴리즈 빌드 (친구에게 줄 때 · Metro/Wi‑Fi 불필요)
+### 릴리즈 빌드
 
 - [docs/release-build-local.md](docs/release-build-local.md)
 - iOS: `npm run ios:release` (USB 실기기)
